@@ -4,7 +4,7 @@ Author: Peng Hao
 Email: peng.hao@student.uts.edu.au
 Purpose: This file is used to implement the algorithm proposed in:
          'Top-N Recommendation on Graphs',
-         by Zhao K. et. al. at CIKM 2016.
+         by Zhao Kang, et. al. at CIKM 2016.
 """
 
 import random
@@ -18,11 +18,13 @@ random.seed(12345)
 
 
 class GraphRec(object):
-    def __init__(self, alpha=5e-3, beta=5e-6):
+    def __init__(self, alpha=1e-4, beta=1e-5):
         # Regularization for user graph
         self.alpha = alpha
         # Regularization for item graph
         self.beta = beta
+        # Top-N
+        self.top_n = 10
 
     def fit(self, train):
         """
@@ -49,32 +51,34 @@ class GraphRec(object):
                                       train.toarray())
         return predictions
 
-    def evaluate(self, predictions, test):
+    def evaluate(self, predictions, train, test):
         hr = ndcg = []
         for u in xrange(test.shape[0]):
             map_item_score = {}
             test_items = test.tocsr()[u].indices
-            if test_items:
+            if len(test_items):
                 for gtItem in test_items:
                     # Get the score of the test item first
                     maxScore = predictions[u, gtItem]
                     # Early stopping if there are K items larger than maxScore.
                     countLarger = 0
-                    for i in xrange(_model.num_item):
+                    # For each user, all unrated items, including test item, are considered to be
+                    # ranked
+                    for i in set(np.arange(predictions.shape[1])) - set(train.tocsr()[u].indices):
                         early_stop = False
                         score = predictions[u, i]
                         map_item_score[i] = score
 
                         if score > maxScore:
                             countLarger += 1
-                        if countLarger > 10:
+                        if countLarger > self.top_n:
                             hr.append(0)
                             ndcg.append(0)
                             early_stop = True
                             break
                     # Generate topK rank list
                     if not early_stop:
-                        ranklist = heapq.nlargest(10, map_item_score, key=map_item_score.get)
+                        ranklist = heapq.nlargest(self.top_n, map_item_score, key=map_item_score.get)
                         one_hr = self.getHitRatio(ranklist, gtItem)
                         one_ndcg = self.getNDCG(ranklist, gtItem)
                         hr.append(one_hr)
