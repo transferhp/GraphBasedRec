@@ -18,6 +18,9 @@ def loadrating_Kholdout(file_path, k_hold_out):
     """
     names = ['user_id', 'item_id', 'rating']
     df = pd.read_csv(file_path, names=names, delim_whitespace=True)
+    # Delete users who have less than one rating
+    g = df.groupby('user_id')
+    df = g.filter(lambda x: len(x) > 1)
     df_table = pd.pivot_table(df, index='user_id', columns='item_id', values='rating')
     # Convert NaN to 0
     df_table = df_table.fillna(0)
@@ -28,7 +31,7 @@ def loadrating_Kholdout(file_path, k_hold_out):
 
     # Split train and test
     for u in range(train.shape[0]):
-        i = np.random.choice(train.tocsr().indices, k_hold_out)
+        i = np.random.choice(train.tocsr()[u].indices, k_hold_out)
         train[u, i] = 0.
         test[u, i] = data[u, i]
 
